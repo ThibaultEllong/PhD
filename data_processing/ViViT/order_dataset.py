@@ -72,12 +72,12 @@ def move_and_rename_videos(source_dir, dest_dir, pattern, label_data, output_csv
 
 def main():
     
-    task_data = read_json("/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/annotations/metadata/takes.json")
+    task_data = read_json("/home/cerisnadm/Bureau/Thibault/Ego4d/takes.json")
     label_data = match_name_label(task_data)
 
-    source_directory = Path('/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/takes/train/takes/')
+    source_directory = Path('/home/cerisnadm/Bureau/Thibault/Ego4d/takes/train/takes/')
     pattern = '_214'
-    dest_path = "/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/test_dataset/"
+    dest_path = "/home/cerisnadm/Bureau/Thibault/Ego4d/dataset/train/"
     output_csv_file = Path(dest_path) / 'metadata.csv'
 
     move_and_rename_videos(source_directory, dest_path, pattern, label_data, output_csv_file)
