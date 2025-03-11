@@ -28,7 +28,7 @@ def move_and_rename_videos(source_dir, dest_dir, pattern, label_data, output_csv
         for root, _, filenames in os.walk(source_dir):
             for filename in filenames:
                 if root.split(os.sep)[-1] == "448" and pattern in filename:
-                     # Extract class name from the path
+                    # Extract class name from the path
                     class_name = root.split(os.sep)[-4]  # Assumes class_name is two levels up from the file
                     if "eye_gaze" in os.listdir(os.path.join(source_dir, class_name)):
                      
@@ -41,19 +41,13 @@ def move_and_rename_videos(source_dir, dest_dir, pattern, label_data, output_csv
                         label = label_data.get(class_name, "Unknown")
                         
 
-                        train_dir = os.path.join(dest_dir, "train")
-                        test_dir = os.path.join(dest_dir, "test")    
-                        if unique_id <= len(os.listdir(source_dir)) * .7:
-                            if label not in os.listdir(train_dir) or class_name not in os.listdir(os.path.join(train_dir, label)):
-                                os.makedirs(os.path.join(train_dir,label, class_name), exist_ok=True)
-                            video_dest_path = os.path.join(train_dir, label, class_name)
-                            gaze_dest_path = os.path.join(train_dir, label, class_name)
-                        else:
-                            if label not in os.listdir(test_dir):
-                                os.makedirs(os.path.join(test_dir, label, class_name), exist_ok=True)
-                            video_dest_path = os.path.join(test_dir, label, class_name)
-                            gaze_dest_path = os.path.join(test_dir, label, class_name)
-
+                      
+                       
+                        if label not in os.listdir(dest_dir) or class_name not in os.listdir(os.path.join(dest_dir, label)):
+                            os.makedirs(os.path.join(dest_dir,label, class_name), exist_ok=True)
+                        video_dest_path = os.path.join(dest_dir, label, class_name)
+                        gaze_dest_path = os.path.join(dest_dir, label, class_name)
+                   
                         # Move and rename the file
                         print()
                         shutil.copy(video_src_path, video_dest_path)
