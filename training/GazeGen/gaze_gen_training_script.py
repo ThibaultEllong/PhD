@@ -4,17 +4,17 @@ import torch.nn as nn
 import torch.optim as optim
 import argparse
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter  # ✅ TensorBoard
+from torch.utils.tensorboard import SummaryWriter 
 from tqdm import tqdm
 from transformers import VivitModel, VivitImageProcessor, VivitConfig
 
 from gaze_gen import GazeGen
-from gaze_encoder import GazeEmbed
+from gaze_encoder_2 import GazeEmbed
 from gaze_dataset import GazeVideoDataset, custom_collate_fn
 
 
 # Function to train the model
-def train(model, train_loader, processor, optimizer, criterion, device, epochs, save_path, writer):
+def train(model, train_loader, processor, optimizer, criterion, device, epochs, save_path, writer, scheduler):
     model.train()  # Set model to training mode
     
     for epoch in range(epochs):
@@ -39,6 +39,7 @@ def train(model, train_loader, processor, optimizer, criterion, device, epochs, 
                 # Backward pass and optimization
                 loss.backward()
                 optimizer.step()
+                scheduler.step(loss)
 
                 running_loss += loss.item()
                 mean_dist += torch.mean(torch.norm(outputs - targets, dim=1))
@@ -90,12 +91,14 @@ def main(args):
     config = VivitConfig(num_frames=16)
     vivit = VivitModel(config).from_pretrained(args.vivit_checkpoint, config=config, ignore_mismatched_sizes=True).to(device)
     vivit.classifier = nn.Identity()  # Remove classification head
+    vivit.eval()
 
     # Load gaze encoder
-    gaze_encoder = GazeEmbed(2, 512, 16, 10).to(device)
-    for params in gaze_encoder.parameters():
-        params.requires_grad = False  # Freeze gaze encoder
-
+    gaze_encoder = GazeEmbed(2, 768, 16, 10).to(device)
+    gaze_encoder.load_state_dict(torch.load("./checkpoints/gaze_embed_768_0.001_15_epoch_14.pth"))
+    gaze_encoder.eval()
+        
+    
     # Initialize GazeGen model
     model = GazeGen(gaze_encoder, vivit, batch_size, frame_num=16).to(device)
 
@@ -108,11 +111,12 @@ def main(args):
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
 
     # Train model with TensorBoard logging
-    train(model, dataloader, processor, optimizer, criterion, device, epochs, save_path, writer)
+    train(model, dataloader, processor, optimizer, criterion, device, epochs, save_path, writer, scheduler)
 
 
 # Argument parser for command-line execution
@@ -130,3 +134,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
+

@@ -28,7 +28,7 @@ def move_and_rename_videos(source_dir, dest_dir, pattern, label_data, output_csv
         for root, _, filenames in os.walk(source_dir):
             for filename in filenames:
                 if root.split(os.sep)[-1] == "448" and pattern in filename:
-                    # Extract class name from the path
+                     # Extract class name from the path
                     class_name = root.split(os.sep)[-4]  # Assumes class_name is two levels up from the file
                     if "eye_gaze" in os.listdir(os.path.join(source_dir, class_name)):
                      
@@ -61,7 +61,7 @@ def move_and_rename_videos(source_dir, dest_dir, pattern, label_data, output_csv
 
     with open(output_csv, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Unique ID", "Original Name", "New Name", "Label"])
+        writer.writerow(["Unique ID", "Original Name", "Class Name", "Label"])
         writer.writerows(renamed_files)
 
 def main():
@@ -71,7 +71,7 @@ def main():
 
     source_directory = Path('/home/cerisnadm/Bureau/Thibault/Ego4d/takes/train/takes/')
     pattern = '_214'
-    dest_path = "/home/cerisnadm/Bureau/Thibault/Ego4d/dataset/train/"
+    dest_path = "/home/cerisnadm/Bureau/Thibault/Ego4d/dataset/train"
     output_csv_file = Path(dest_path) / 'metadata.csv'
 
     move_and_rename_videos(source_directory, dest_path, pattern, label_data, output_csv_file)
