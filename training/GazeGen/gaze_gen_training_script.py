@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_path", type=str, default="./checkpoints", help="Directory to save model checkpoints.")
     parser.add_argument("--vivit_checkpoint", type=str, required=True, help="Path to pretrained ViViT checkpoint.")
     parser.add_argument("--log_dir", type=str, default="./logs", help="Directory to save TensorBoard logs.")
-    parser.add_argument("--prediction_length", type=str, default=10, help="Number of future gaze predictions")
+    parser.add_argument("--prediction_length", type=int, default=10, help="Number of future gaze predictions")
     parser.add_argument("--frame_num", type=int, default=16, help="Number of frames in the video")
     parser.add_argument("--hidden_size", type=int, default=768, help="Hidden size of the gaze encoder")
 
