@@ -1,4 +1,4 @@
-gimport os
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -109,7 +109,7 @@ def main(args):
     model = GazeGen(gaze_encoder, vivit, batch_size, frame_num=frame_num).to(device)
 
     # Load dataset and DataLoader
-    gaze_dataset = GazeVideoDataset(args.metadata_root_path, frames=frame_num, prediction_size=prediction_size, num_workers=64
+    gaze_dataset = GazeVideoDataset(args.metadata_root_path, frames=frame_num, prediction_size=prediction_size, num_workers=64)
     dataloader = DataLoader(gaze_dataset, collate_fn=custom_collate_fn, batch_size=batch_size, shuffle=True)
 
     processor = VivitImageProcessor.from_pretrained("google/vivit-b-16x2-kinetics400")
