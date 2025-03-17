@@ -38,8 +38,8 @@ class GazeEncoder(nn.Module):
         
         
     def normalize(self, x, screen_width=1920, screen_height=1080):
-        x[:, 0] = x[:, 0] / screen_width
-        x[:, 1] = x[:, 1] / screen_height
+        x[:,:, 0] = x[:,:, 0] / screen_width
+        x[:,:, 1] = x[:,:,1] / screen_height
         return x
 
     def forward(self, x):
@@ -75,13 +75,13 @@ class GazeDecoder(nn.Module):
         )
         
     def denormalize_gaze(self, x, screen_width=1920, screen_height=1080):
-        x[:, 0] = x[:, 0] * screen_width
-        x[:, 1] = x[:, 1] * screen_height
+        x[:, :, 0] = x[:, :, 0] * screen_width
+        x[:, :, 1] = x[:, :, 1] * screen_height
         return x
 
     def forward(self, z):  # z is the latent vector
         
-        return self.denormalize_gaze(self.layers(z[:,:10,:]))  # Ensure output shape matches input shape
+        return self.denormalize_gaze(self.layers(z[:,:self.prediction_length,:]))  # Ensure output shape matches input shape
 
 class GazeEmbed(nn.Module):
     def __init__(self, input_dim, latent_dim, sequence_length, prediction_length):
@@ -106,13 +106,14 @@ def check_for_nans(model):
             print(f"NaN detected in gradient of parameter: {name}")
 
 
-def main():
+def train_gaze_embed(n_epochs, lr, l_dim, in_dim, num_frames, prediction_length):
     print(os.getcwd())
+    
     
     train_root_path = "/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/dataset/train/"
     test_root_path = "/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/dataset/test/"
-    train_dataset = GazeVideoDataset(train_root_path, frames=16, prediction_size=10, gaze_only=True)
-    test_dataset = GazeVideoDataset(test_root_path, frames=16, prediction_size=10, gaze_only=True)
+    train_dataset = GazeVideoDataset(train_root_path, frames=num_frames, prediction_size=prediction_length, gaze_only=True)
+    test_dataset = GazeVideoDataset(test_root_path, frames=num_frames, prediction_size=prediction_length, gaze_only=True)
   
     
     train_loader = DataLoader(train_dataset, 256, True)
@@ -124,38 +125,35 @@ def main():
     
     
     
-    N_EPOCHS = 0
-    LR = 0.001
-    l_dim = 768
-    in_dim = 2
+   
     
-    model = GazeEmbed(input_dim=in_dim, latent_dim=l_dim, sequence_length=16, prediction_length=10).to(device)
+    model = GazeEmbed(input_dim=in_dim, latent_dim=l_dim, sequence_length=num_frames, prediction_length=prediction_length).to(device)
     
-    checkpoint_path = Path(f'./Models/GazeEncoder/checkpoints/gaze_embed_{time()}_{l_dim}_{LR}_{N_EPOCHS}')
+    checkpoint_path = Path(f'./Models/GazeEncoder/checkpoints/gaze_embed_{num_frames}_{prediction_length}_{time()}_{l_dim}_{lr}_{n_epochs}')
     os.mkdir(checkpoint_path)
     
-    optimizer = Adam(model.parameters(), lr=LR)
+    optimizer = Adam(model.parameters(), lr=lr)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
     criterion = nn.MSELoss()
     
     writer = SummaryWriter(log_dir='/home/thibault/Documents/Code/LogDir/autoencoder')
     
-    for epoch in trange(N_EPOCHS, desc="Training Autoencoder !"):
+    for epoch in trange(n_epochs, desc="Training Autoencoder !"):
         train_loss = 0.0
         avg_dist = 0.0
         for batch in tqdm(
             train_loader, desc=f"Epoch {epoch + 1} in training", leave=False):
-            x = batch["gaze"][:, :16, :].to(device)
+            x = batch["gaze"][:, :num_frames, :].to(device)
             y = model(x)
-            loss = criterion(x[:,:10], y)
+            loss = criterion(x[:,:prediction_length], y)
 
             train_loss += loss.detach().cpu().item() / len(train_loader)
-            avg_dist += torch.abs(x[:,:10]-y).mean().detach().cpu().item()
+            avg_dist += torch.abs(x[:,:prediction_length]-y).mean().detach().cpu().item()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
-        print(f"Epoch {epoch + 1}/{N_EPOCHS} loss: {train_loss:.2f}")
+        print(f"Epoch {epoch + 1}/{n_epochs} loss: {train_loss:.2f}")
         scheduler.step(train_loss)
         print(f"Average distance error (in pixel): {avg_dist / len(train_loader)}")
         writer.add_scalar('Loss/train', train_loss, epoch)
@@ -166,6 +164,7 @@ def main():
     
 
     with torch.no_grad():
+        checkpoint = torch.load('./Models/GazeEncoder/checkpoints/gaze_encoder_1739293104.678117_512_0.001_50/gaze_encoder_epoch_49.pth')
         # model.load_state_dict(checkpoint)
         model.eval()  
         correct, total = 0, 0
@@ -175,15 +174,15 @@ def main():
         avg_dist = 0.0
         i = 0
         for batch in tqdm(test_loader, desc="Testing"):
-            x = batch["gaze"][:, :16, :].to(device)
+            x = batch["gaze"][:, :num_frames, :].to(device)
             y = model(x)   
-            loss = criterion(x[:,:10], y)
+            loss = criterion(x[:,:prediction_length], y)
             test_loss += loss.detach().cpu().item() / len(test_loader)        
-            correct += torch.sum(torch.abs(x[:,:10]-y)<=2).detach().cpu().item()
+            correct += torch.sum(torch.abs(x[:,:prediction_length]-y)<=2).detach().cpu().item()
             total += x.numel()        
-            input = torch.cat((input,x[:,:10].cpu()), dim=0)
+            input = torch.cat((input,x[:,:prediction_length].cpu()), dim=0)
             preds = torch.cat((preds,y.cpu()), dim=0)
-            avg_dist += torch.abs(x[:,:10]-y).mean().detach().cpu().item()
+            avg_dist += torch.abs(x[:,:prediction_length]-y).mean().detach().cpu().item()
             i += 1
         accuracies = []
         for i in range(0,10):
@@ -194,7 +193,7 @@ def main():
         print(f"Test loss: {test_loss:.2f}")
         print(f"Test accuracy: {correct / total * 100:.2f}%")
         print(f"Average distance error (in pixel): {avg_dist / len(test_loader)}")
-
+    return model
 
 
 if __name__ == "__main__":

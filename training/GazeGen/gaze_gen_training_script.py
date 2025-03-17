@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import VivitModel, VivitImageProcessor, VivitConfig
 
 from gaze_gen import GazeGen
-from gaze_encoder import GazeEmbed
+from gaze_encoder import GazeEmbed, train_gaze_embed
 from gaze_dataset import GazeVideoDataset, custom_collate_fn
 
 
@@ -42,8 +42,9 @@ def train(model, train_loader, processor, optimizer, criterion, device, epochs, 
                 scheduler.step(loss)
 
                 running_loss += loss.item()
-                mean_dist += torch.mean(torch.norm(outputs - targets, dim=1))
-                print("Mean Distance: ", mean_dist)
+                dist= torch.mean(torch.norm(outputs - targets, dim=1))
+                print("Mean Distance of batch: ", dist)
+                mean_dist += dist
                 correct += (outputs.argmax(dim=1) == targets.argmax(dim=1)).sum().item()
                 total += targets.size(0)
 
@@ -56,7 +57,7 @@ def train(model, train_loader, processor, optimizer, criterion, device, epochs, 
                 pbar.set_postfix(loss=running_loss / (batch_idx + 1), accuracy=100. * correct / total)
 
         # Logging at the end of each epoch
-        avg_mean_dist = mean_dist / len(train_loader)
+        mean_dist = mean_dist / len(train_loader)
         avg_loss = running_loss / len(train_loader)
         accuracy = 100. * correct / total
         writer.add_scalar('Epoch Loss', avg_loss, epoch)
@@ -100,22 +101,25 @@ def main(args):
     
 
     # Load gaze encoder
-    gaze_encoder = GazeEmbed(2, hidden_size, frame_num, prediction_size).to(device)
-    gaze_encoder.load_state_dict(torch.load("./checkpoints/gaze_embed_768_0.001_15_epoch_14.pth"))
-    gaze_encoder.eval()
+    if args.train_encoder: 
+        gaze_encoder = train_gaze_embed(1, 0.001, hidden_size, 2, frame_num, prediction_length=prediction_size)
+    else:
+        gaze_encoder = GazeEmbed(2, hidden_size, frame_num, prediction_size).to(device)
+        gaze_encoder.load_state_dict(torch.load(args.gaze_encoder_checkpoint))
+        gaze_encoder.eval()
         
     
     # Initialize GazeGen model
-    model = GazeGen(gaze_encoder, vivit, batch_size, frame_num=frame_num).to(device)
+    model = GazeGen(gaze_encoder, vivit, batch_size, frame_num=frame_num, prediction_size=prediction_size).to(device)
 
     # Load dataset and DataLoader
-    gaze_dataset = GazeVideoDataset(args.metadata_root_path, frames=frame_num, prediction_size=prediction_size, num_workers=64)
-    dataloader = DataLoader(gaze_dataset, collate_fn=custom_collate_fn, batch_size=batch_size, shuffle=True)
+    gaze_dataset = GazeVideoDataset(args.metadata_root_path, frames=frame_num, prediction_size=prediction_size)
+    dataloader = DataLoader(gaze_dataset, collate_fn=custom_collate_fn, batch_size=batch_size, shuffle=True, num_workers=16)
 
     processor = VivitImageProcessor.from_pretrained("google/vivit-b-16x2-kinetics400")
 
     # Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -139,7 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_length", type=int, default=10, help="Number of future gaze predictions")
     parser.add_argument("--frame_num", type=int, default=16, help="Number of frames in the video")
     parser.add_argument("--hidden_size", type=int, default=768, help="Hidden size of the gaze encoder")
-
+    parser.add_argument("--train_encoder", type=bool, default = False, help="Train gaze encoder from scratch.")
+    parser.add_argument("--gaze_encoder_checkpoint", type=str, help="Path to pretrained gaze encoder checkpoint.")
     args = parser.parse_args()
 
     main(args)
