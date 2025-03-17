@@ -1,4 +1,4 @@
-import os
+gimport os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import VivitModel, VivitImageProcessor, VivitConfig
 
 from gaze_gen import GazeGen
-from gaze_encoder_2 import GazeEmbed
+from gaze_encoder import GazeEmbed
 from gaze_dataset import GazeVideoDataset, custom_collate_fn
 
 
@@ -104,7 +104,7 @@ def main(args):
 
     # Load dataset and DataLoader
     gaze_dataset = GazeVideoDataset(args.metadata_root_path, frames=16, prediction_size=10)
-    dataloader = DataLoader(gaze_dataset, collate_fn=custom_collate_fn, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(gaze_dataset, num_workers=64, collate_fn=custom_collate_fn, batch_size=batch_size, shuffle=True)
 
     processor = VivitImageProcessor.from_pretrained("google/vivit-b-16x2-kinetics400")
 
