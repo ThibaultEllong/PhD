@@ -97,7 +97,10 @@ def main(args):
     config = VivitConfig(num_frames=frame_num)
     vivit = VivitModel(config).from_pretrained(args.vivit_checkpoint, config=config, ignore_mismatched_sizes=True).to(device)
     vivit.classifier = nn.Identity()  # Remove classification head
-    vivit.eval()
+    
+    for name, param in vivit.named_parameters():
+        param.requires_grad = False
+
     
 
     # Load gaze encoder
@@ -107,8 +110,11 @@ def main(args):
         gaze_encoder = GazeEmbed(2, hidden_size, frame_num, prediction_size).to(device)
         gaze_encoder.load_state_dict(torch.load(args.gaze_encoder_checkpoint))
         gaze_encoder.eval()
-        
     
+    for name, param in gaze_encoder.named_parameters():
+        param.requires_grad = False
+
+        
     # Initialize GazeGen model
     model = GazeGen(gaze_encoder, vivit, batch_size, frame_num=frame_num, prediction_size=prediction_size).to(device)
 
@@ -148,4 +154,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args)
-
