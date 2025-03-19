@@ -16,7 +16,7 @@ def build_label_data(annotations):
         {
             "scenario_name": ann["scenario_name"],
             "task_name": ann["video_paths"].get("ego").split("/")[-3],
-            "skill": str(ann["proficiency_score"]),
+            "skill": ann["proficiency_score"],
             "video_filename": Path(ann["video_paths"]["ego"]).name
         }
         for ann in annotations
