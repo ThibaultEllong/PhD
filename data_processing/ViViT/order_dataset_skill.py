@@ -14,7 +14,8 @@ def load_annotations(json_path: Path):
 def build_label_data(annotations):
     return [
         {
-            "task_name": ann["scenario_name"],
+            "scenario_name": ann["scenario_name"],
+            "task_name": ann["path"].split("/")[-3],
             "skill": str(ann["proficiency_score"]),
             "video_filename": Path(ann["video_paths"]["ego"]).name
         }
@@ -27,27 +28,25 @@ def reorganize_videos(source_root: Path, dest_root: Path, label_data: list, csv_
     uid = 0
 
     for entry in tqdm(label_data, desc="Reorganizing videos"):
-        class_name = entry["task"]
-        task_name = entry["path"].split("/")[-3]
-        ego_path = entry["path"]
+        task = entry["task_name"]
         skill = entry["skill"]
-        video_name = ego_path.split("/")[-1]
+        filename = entry["video_filename"]
 
         # Determine source subfolder
         for split in ("train", "test"):
-            candidate = source_root / split / "takes" / task_name / "frame_aligned_videos" / "downscaled" / "448" / video_name
+            candidate = source_root / split / "takes" / task / "frame_aligned_videos" / "downscaled" / "448" / filename
             print("path:", candidate)
             if candidate.exists():
                 src = candidate
                 dst_dir = dest_root / split / skill
                 dst_dir.mkdir(parents=True, exist_ok=True)
-                dst = dst_dir / f"{task_name}.mp4"
+                dst = dst_dir / f"{task}.mp4"
                 shutil.copy(src, dst)
-                rows.append((uid, src, task_name, skill))
+                rows.append((uid, src, task, skill))
                 uid += 1
                 break
         else:
-            print(f"[WARNING] Could not find video for task '{task_name}' -> {video_name}")
+            print(f"[WARNING] Could not find video for task '{task}' -> {filename}")
 
     with open(csv_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
