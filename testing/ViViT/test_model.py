@@ -16,7 +16,7 @@ from transformers import (
     Trainer,
     TrainingArguments
 )
-from train_model import *
+
 import evaluate
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
