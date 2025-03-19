@@ -34,6 +34,7 @@ def reorganize_videos(source_root: Path, dest_root: Path, label_data: list, csv_
         # Determine source subfolder
         for split in ("train", "test"):
             candidate = source_root / split / "takes" / task / "frame_aligned_videos" / "downscaled" / "448" / filename
+            print("path:", candidate)
             if candidate.exists():
                 src = candidate
                 dst_dir = dest_root / split / skill
