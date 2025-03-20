@@ -27,6 +27,7 @@ from transformers import (
 )
 import evaluate
 from IPython.display import Image
+import time
 
 def count_videos(dataset_root_path):
     """Count the number of videos in the dataset."""
@@ -42,13 +43,28 @@ def get_class_labels(all_video_file_paths):
     id2label = {i: label for label, i in label2id.items()}
     return label2id, id2label
 
-def load_model(label2id, id2label):
-    """Load and configure the ViViT model for video classification."""
+def load_model(label2id, id2label, freeze_feature_extractor=True):
+    """Load and configure the ViViT model for video classification.
+    
+    Args:
+        label2id (dict): Mapping from class labels to IDs.
+        id2label (dict): Mapping from IDs to class labels.
+        freeze_feature_extractor (bool): Whether to freeze the base model parameters.
+        
+    Returns:
+        model: The configured ViViT model ready for fine-tuning.
+    """
     model = VivitForVideoClassification.from_pretrained("google/vivit-b-16x2-kinetics400").to("cuda")
     model.config.label2id = label2id
     model.config.id2label = id2label
     model.classifier = torch.nn.Linear(in_features=768, out_features=len(label2id), bias=True).to("cuda")
     model.num_labels = len(label2id)
+    
+    if freeze_feature_extractor:
+        for name, param in model.named_parameters():
+            # Only allow the classifier (and any added head layers) to be trained.
+            if "classifier" not in name:
+                param.requires_grad = False
     return model
 
 def prepare_transforms(image_processor, num_frames_to_sample, resize_to):
@@ -160,7 +176,7 @@ def main():
     label2id, id2label = get_class_labels(all_video_file_paths)
     print(f"Unique classes: {list(label2id.keys())}.")
 
-    model = load_model(label2id, id2label)
+    model = load_model(label2id, id2label, freeze_feature_extractor=True)
     image_processor = VivitImageProcessor.from_pretrained("google/vivit-b-16x2-kinetics400")
 
     num_frames_to_sample = model.config.num_frames
@@ -180,7 +196,7 @@ def main():
     display_gif(video_tensor, mean=image_processor.image_mean, std=image_processor.image_std)
 
     model_name = "ViViT"
-    new_model_name = f"{model_name}-finetuned-egoexo4D-subset"
+    new_model_name = f"{model_name}-finetuned-egoexo4D-subset_{time.time()}"
     num_epochs = 2
     batch_size = 1
 
@@ -211,6 +227,7 @@ def main():
     )
 
     train_results = trainer.train()
+    print(train_results)
 
 if __name__ == "__main__":
     main()
