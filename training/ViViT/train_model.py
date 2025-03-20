@@ -161,7 +161,7 @@ def compute_metrics(eval_pred):
     return metric.compute(predictions=predictions, references=eval_pred.label_ids)
 
 def main():
-    dataset_root_path = Path("/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/dataset/")
+    dataset_root_path = Path("/home/cerisnadm/Bureau/Thibault/Ego4d/dataset/skill")
 
     video_count_train, video_count_val, video_count_test = count_videos(dataset_root_path)
     video_total = video_count_train + video_count_val + video_count_test
