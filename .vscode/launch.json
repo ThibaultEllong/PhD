@@ -1,0 +1,61 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+      "name": "Python Debugger: Train GazeGen",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/home/thibault/Documents/PhD/training/GazeGen/gaze_gen_training_script.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        "--metadata_root_path", 
+        "/media/thibault/DATA/these_thibault/Dataset/data/EgoExo4D/dataset/train/",
+        "--batch_size", 
+        "2", 
+        "--epochs", 
+        "1", 
+        "--vivit_checkpoint", 
+        "/home/thibault/Documents/PhD/training/ViViT/checkpoints/checkpoint-536/",
+        "--log_dir",
+        "/home/thibault/Documents/Code/LogDir/GazeGen/",
+        "--learning_rate",
+        "0.01",
+        "--frame_num",
+        "8",
+        "--prediction_length",
+        "2",
+        "--train_encoder",
+        "True",
+      ]
+    },
+      {
+        "name": "Python Debugger: Current File",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "justMyCode": true
+      },
+      {
+        "name": "C/C++ Runner: Debug Session",
+        "type": "cppdbg",
+        "request": "launch",
+        "args": [],
+        "stopAtEntry": false,
+        "externalConsole": false,
+        "cwd": "/home/thibault/Documents/Code/.venv/lib/python3.10/site-packages/transformers/models/vivit",
+        "program": "/home/thibault/Documents/Code/.venv/lib/python3.10/site-packages/transformers/models/vivit/build/Debug/outDebug",
+        "MIMode": "gdb",
+        "miDebuggerPath": "gdb",
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          }
+        ]
+      }
+    ]
+  }
+  
