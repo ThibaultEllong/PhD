@@ -60,7 +60,7 @@ class EgoExoDataset(Dataset):
         
         
      
-        return {'ego': ego_frames, 'exo': exo_frames, 'pose': reshaped_pose, 'label': sample['label'], 'skill': sample['skill']}
+        return {'samples': self.samples[idx], 'ego': ego_frames, 'exo': exo_frames, 'pose': reshaped_pose, 'label': sample['label'], 'skill': sample['skill']}
         
         
     def build_index(self):
@@ -140,7 +140,6 @@ class EgoExoDataset(Dataset):
         elif f"{take_uid}.json" in os.listdir(os.path.join(pose_folder, "train", 'body/annotation')):
             pose_path = os.path.join(self.dataset_dir, 'annotations/ego_pose', "train", "body/annotation", f"{take_uid}.json" )
         else:
-            print(f"Pose data for {take_uid} not found.")
             return None
         
         with open(pose_path, 'r') as f:
@@ -168,6 +167,21 @@ class EgoExoDataset(Dataset):
         with open(pose_path, 'r') as f:
             pose_data = json.load(f)
         return pose_data
+    
+    
+    
+    def _get_skill(self, dataset_path):
+        split_label = {}
+        for split in ["train", "val", ]:
+            skill_path = Path(os.path.join(dataset_path, f'annotations/proficiency_demonstrator_{split}.json'))
+            with skill_path.open('r') as f:
+                labels = json.load(f)["annotations"]
+            label_dict= defaultdict(lambda: None)
+            label_to_id = {'Novice': 0, 'Early Expert': 1, 'Intermediate Expert': 2, 'Late Expert': 3}
+            for seq in labels:
+                label_dict[seq["take_uid"]] = label_to_id[seq["proficiency_score"]]
+            split_label[split] = label_dict  
+        return split_label
     
     def _reshape_annotations(self, data):
         """
@@ -215,19 +229,6 @@ class EgoExoDataset(Dataset):
                         "annotation3D": ann3d
                     })
         return cameras
-    
-    def _get_skill(self, dataset_path):
-        split_label = {}
-        for split in ["train", "val"]:
-            skill_path = Path(os.path.join(dataset_path, f'annotations/proficiency_demonstrator_{split}.json'))
-            with skill_path.open('r') as f:
-                labels = json.load(f)["annotations"]
-            label_dict= defaultdict(lambda: None)
-            label_to_id = {'Novice': 0, 'Early Expert': 1, 'Intermediate Expert': 2, 'Late Expert': 3}
-            for seq in labels:
-                label_dict[seq["take_uid"]] = label_to_id[seq["proficiency_score"]]
-            split_label[split] = label_dict  
-        return split_label
 
 
     def skeleton_to_coco(self, skel):
