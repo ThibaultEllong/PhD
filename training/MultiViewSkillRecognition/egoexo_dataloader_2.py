@@ -10,7 +10,7 @@ class EgoExoDataset(Dataset):
     
     """Loads the 4 exo and 1 ego view and its corresponding pose data and label.
     """
-    def __init__(self, dataset_dir, takes_info_path, split = "train", viewpoint = None, skill = False, get_pose = False, get_hands_pose = False, get_frames = True, frame_rate=1, transform=None):
+    def __init__(self, dataset_dir, takes_info_path, split = "train", viewpoint = None, skill = False, get_pose = False, get_hands_pose = False, get_frames = True, frame_rate=1, transform=None, test_path="./"):
         self.dataset_dir = dataset_dir
         self.takes_info_path = takes_info_path
         self.split = split
@@ -21,12 +21,16 @@ class EgoExoDataset(Dataset):
         self.get_hands_pose = get_hands_pose
         self.get_frames = get_frames
         self.skill = skill
+        self.test_path = test_path
         self.skill_dict = self._get_skill(self.dataset_dir)
         self.build_index()
         
     
     def __getitem__(self, idx):
         sample = self.samples[idx]
+        
+        if self.split == "test":
+            return {"samples": sample}
         range = None
         # Load ego video frames
         if self.get_pose:
@@ -60,7 +64,7 @@ class EgoExoDataset(Dataset):
         
         
      
-        return {'samples': self.samples[idx], 'ego': ego_frames, 'exo': exo_frames, 'pose': reshaped_pose, 'label': sample['label'], 'skill': sample['skill']}
+        return {'samples': sample, 'ego': ego_frames, 'exo': exo_frames, 'pose': reshaped_pose, 'label': sample['label'], 'skill': sample['skill']}
         
         
     def build_index(self):
@@ -69,32 +73,48 @@ class EgoExoDataset(Dataset):
             takes_info = json.load(f)
         
         self.samples = []
-        for take in takes_info:
-            if take["take_uid"] in self.skill_dict[self.split].keys():
-                ego_key = list(take["frame_aligned_videos"].keys())[0]
-                ego_video_path = os.path.join(self.dataset_dir, take['root_dir'], 'frame_aligned_videos/downscaled/448/', take["frame_aligned_videos"][ego_key]['rgb']['relative_path'].split('/')[-1])
-                exo_video_paths = [os.path.join(self.dataset_dir, take['root_dir'], 'frame_aligned_videos/downscaled/448/', f'{exo}.mp4') for exo in take["frame_aligned_videos"] if exo not in ['aria01', 'aria02', "collage", "best_exo"]]
+        
+        if self.split == "test":
+            with open("/media/thibault/T5 EVO/Datasets/Ego4D/annotations/demonstrator_proficiency_test.json", 'r') as f:
+                takes_info = json.load(f)
+            print(len(os.listdir(self.test_path)))
+            for take in takes_info:
+                exo_video_paths = []
+                ego_video_path = []
+                for video in os.listdir(self.test_path / take / "frame_aligned_videos/downscaled/448/"):
+                    if "aria" not in video and "preview" not in video:
+                        exo_video_paths.append(f"{self.test_path / take / "frame_aligned_videos/downscaled/448/" / video}")
+                    if "_214" in video:
+                        ego_video_path.append(f"{self.test_path / take / "frame_aligned_videos/downscaled/448/" / video}")
+                self.samples.append({'take_name': take, 'ego': ego_video_path, 'exo': exo_video_paths})
                 
-                if self.skill and self.skill_dict[self.split][take['take_uid']] is None:
-                    print(f"Skill data for {take['take_uid']} not found.")
-                    continue
-                
-                if self.get_hands_pose and self._load_hand_pose(take['take_uid']) is not None:
-                    self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
-                elif self.get_pose and self.get_hands_pose == False and self._load_pose is None: 
-                    continue
-                
-                if self.get_pose and self._load_pose(take['take_uid']) is not None:
-                    # pose = self._load_pose(take['take_uid'])
-                    # if self._reshape_annotations(pose).keys() != 5:
-                    #     print(f"Pose data for {take['take_uid']} not found.")
-                    #     continue
-                    self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
-                elif self.get_pose == False and self.get_hands_pose == True and self._load_hand_pose is None: 
-                    continue
-                elif self.get_pose == False:
-                    self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
-                
+        else:  
+            for take in takes_info:
+                if take["take_uid"] in self.skill_dict[self.split].keys():
+                    ego_key = list(take["frame_aligned_videos"].keys())[0]
+                    ego_video_path = os.path.join(self.dataset_dir, take['root_dir'], 'frame_aligned_videos/downscaled/448/', take["frame_aligned_videos"][ego_key]['rgb']['relative_path'].split('/')[-1])
+                    exo_video_paths = [os.path.join(self.dataset_dir, take['root_dir'], 'frame_aligned_videos/downscaled/448/', f'{exo}.mp4') for exo in take["frame_aligned_videos"] if exo not in ['aria01', 'aria02', "collage", "best_exo"]]
+                    
+                    if self.skill and self.skill_dict[self.split][take['take_uid']] is None:
+                        print(f"Skill data for {take['take_uid']} not found.")
+                        continue
+                    
+                    if self.get_hands_pose and self._load_hand_pose(take['take_uid']) is not None:
+                        self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
+                    elif self.get_pose and self.get_hands_pose == False and self._load_pose is None: 
+                        continue
+                    
+                    if self.get_pose and self._load_pose(take['take_uid']) is not None:
+                        # pose = self._load_pose(take['take_uid'])
+                        # if self._reshape_annotations(pose).keys() != 5:
+                        #     print(f"Pose data for {take['take_uid']} not found.")
+                        #     continue
+                        self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
+                    elif self.get_pose == False and self.get_hands_pose == True and self._load_hand_pose is None: 
+                        continue
+                    elif self.get_pose == False:
+                        self.samples.append({'take_uid':take['take_uid'], 'label': take["task_id"], 'skill': self.skill_dict[self.split][take['take_uid']], 'parent_task_id':take['parent_task_id'], 'ego': ego_video_path, 'exo': exo_video_paths})
+                    
     def __len__(self):
         return len(self.samples)
     
